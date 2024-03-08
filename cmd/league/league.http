@@ -1,0 +1,6 @@
+# league.http
+GET /champions         ListChampions
+POST /champions        CreateChampion
+GET /champions/:id     GetChampion
+PUT /champions/:id     UpdateChampion
+DELETE /champions/:id  DeleteChampion
