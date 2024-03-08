@@ -1,18 +1,18 @@
 package main
 
 import (
-	"log"
 	"net/http"
+	"github.com/SatelliteB6/TSIS2/pkg/league"
 )
 
 func main() {
-	http.HandleFunc("/champions", ListChampions)
-	http.HandleFunc("/champions/create", CreateChampion)
-	http.HandleFunc("/champions/get", GetChampion)
-	http.HandleFunc("/champions/update", UpdateChampion)
-	http.HandleFunc("/champions/delete", DeleteChampion)
+	// Define HTTP routes
+	http.HandleFunc("/champions", league.ListChampions)
+	http.HandleFunc("/champions/create", league.CreateChampion)
+	http.HandleFunc("/champions/get", league.GetChampion)
+	http.HandleFunc("/champions/update", league.UpdateChampion)
+	http.HandleFunc("/champions/delete", league.DeleteChampion)
 
-	port := ":8080"
-	log.Printf("Server running on port %s...\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, nil))
+	port := "8080"
+	http.ListenAndServe(":"+port, nil)
 }
