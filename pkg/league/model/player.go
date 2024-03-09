@@ -1,4 +1,3 @@
-// player.go
 package model
 
 type Player struct {

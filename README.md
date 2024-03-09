@@ -1,5 +1,7 @@
 # League of Legends Project
 
+Welcome to the League of Legends Project, a simple Go project inspired by the world of League of Legends. 
+
 ## League REST API
 
 ```
