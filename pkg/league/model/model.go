@@ -1,4 +1,3 @@
-// model.go
 package model
 
 type ErrorResponse struct {

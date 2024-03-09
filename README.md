@@ -23,6 +23,36 @@ Table champions {
   id serial [primary key]
   name varchar(255)
   class varchar(255)
-  pice int
+  price int
+}
+
+Table items {
+  id serial [primary key]
+  name varchar(255)
+  description text
+  cost int
+}
+
+Table matches {
+  id serial [primary key]
+  date timestamp
+  duration interval
+  winner_team_id int
+}
+
+Table players {
+  id serial [primary key]
+  summoner_id int
+  champion_id int
+  role varchar(50)
+}
+
+Table teams {
+  id serial [primary key]
+  player_ids int[]
 }
 ```
+
+## Team:
+
+Serik Dinmukhammed 22B030439
