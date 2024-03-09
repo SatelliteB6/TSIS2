@@ -56,8 +56,7 @@ Table teams {
 ```
 
 ## Team:
-```
+
 Serik Dinmukhammed  22B030439
-```
+
 Iman Nursovet       22B030416
-```
