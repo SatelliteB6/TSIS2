@@ -79,15 +79,29 @@ func UpdateChampion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	found := false
 	for i, champion := range champions {
 		if champion.ID == id {
-			champions[i] = updatedChampion
+			found = true
+			if updatedChampion.Name != "" {
+				champions[i].Name = updatedChampion.Name
+			}
+			if updatedChampion.Class != "" {
+				champions[i].Class = updatedChampion.Class
+			}
+			if updatedChampion.Price != 0 {
+				champions[i].Price = updatedChampion.Price
+			}
+
+			updatedChampion.ID = id
 			json.NewEncoder(w).Encode(updatedChampion)
-			return
+			break
 		}
 	}
 
-	http.Error(w, "Champion not found", http.StatusNotFound)
+	if !found {
+		http.Error(w, "Champion not found", http.StatusNotFound)
+	}
 }
 
 func DeleteChampion(w http.ResponseWriter, r *http.Request) {
@@ -103,6 +117,11 @@ func DeleteChampion(w http.ResponseWriter, r *http.Request) {
 	for i, champion := range champions {
 		if champion.ID == id {
 			champions = append(champions[:i], champions[i+1:]...)
+
+			for j := i; j < len(champions); j++ {
+				champions[j].ID--
+			}
+
 			w.Write([]byte(`{"message": "Champion deleted"}`))
 			return
 		}

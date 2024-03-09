@@ -22,9 +22,7 @@ DELETE /champions/:id
 Table champions {
   id serial [primary key]
   name varchar(255)
-  role varchar(255)
-  difficulty int
-  created_at timestamp
-  updated_at timestamp
+  class varchar(255)
+  pice int
 }
 ```
