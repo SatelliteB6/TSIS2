@@ -1,10 +1,32 @@
 package league
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
+
+	_ "github.com/lib/pq"
 )
+
+var db *sql.DB
+
+func init() {
+	connStr := "user=postgres password=Satellite_b6 dbname=crud sslmode=disable"
+	var err error
+	db, err = sql.Open("postgres", connStr)
+	if err != nil {
+		panic(err)
+	}
+
+	err = db.Ping()
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("Connected to the database")
+}
 
 type Champion struct {
 	ID    int    `json:"id"`
@@ -13,20 +35,29 @@ type Champion struct {
 	Price int    `json:"price"`
 }
 
-var champions = []Champion{
-	{ID: 1, Name: "Aatrox", Class: "Fighter", Price: 4800},
-	{ID: 2, Name: "Ahri", Class: "Mage", Price: 3150},
-	{ID: 3, Name: "Akali", Class: "Assassin", Price: 3150},
-	{ID: 4, Name: "Alistar", Class: "Tank", Price: 1350},
-	{ID: 5, Name: "Amumu", Class: "Tank", Price: 450},
+func ListChampions(w http.ResponseWriter, r *http.Request, db *sql.DB) {
+	rows, err := db.Query("SELECT * FROM champions")
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	defer rows.Close()
+
+	var champions []Champion
+	for rows.Next() {
+		var champion Champion
+		err := rows.Scan(&champion.ID, &champion.Name, &champion.Class, &champion.Price)
+		if err != nil {
+			handleError(w, err)
+			return
+		}
+		champions = append(champions, champion)
+	}
+
+	writeJSONResponse(w, champions)
 }
 
-func ListChampions(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(champions)
-}
-
-func CreateChampion(w http.ResponseWriter, r *http.Request) {
+func CreateChampion(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	var newChampion Champion
 	err := json.NewDecoder(r.Body).Decode(&newChampion)
 	if err != nil {
@@ -34,38 +65,54 @@ func CreateChampion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	newChampion.ID = len(champions) + 1
-
-	champions = append(champions, newChampion)
+	err = db.QueryRow("INSERT INTO champions (name, class, price) VALUES ($1, $2, $3) RETURNING id",
+		newChampion.Name, newChampion.Class, newChampion.Price).
+		Scan(&newChampion.ID)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(newChampion)
 }
 
-func GetChampion(w http.ResponseWriter, r *http.Request) {
+func GetChampion(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	w.Header().Set("Content-Type", "application/json")
 
 	idParam := r.URL.Query().Get("id")
+	if idParam == "" {
+		http.Error(w, "Champion ID is missing", http.StatusBadRequest)
+		return
+	}
+
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
 		http.Error(w, "Invalid champion ID", http.StatusBadRequest)
 		return
 	}
 
-	for _, champion := range champions {
-		if champion.ID == id {
-			json.NewEncoder(w).Encode(champion)
-			return
-		}
+	var champion Champion
+	err = db.QueryRow("SELECT id, name, class, price FROM champions WHERE id = $1", id).
+		Scan(&champion.ID, &champion.Name, &champion.Class, &champion.Price)
+	if err != nil {
+		log.Printf("Error querying database: %v", err)
+		http.Error(w, "Error retrieving champion", http.StatusInternalServerError)
+		return
 	}
 
-	http.Error(w, "Champion not found", http.StatusNotFound)
+	writeJSONResponse(w, champion)
 }
 
-func UpdateChampion(w http.ResponseWriter, r *http.Request) {
+func UpdateChampion(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	w.Header().Set("Content-Type", "application/json")
 
 	idParam := r.URL.Query().Get("id")
+	if idParam == "" {
+		http.Error(w, "Champion ID is missing", http.StatusBadRequest)
+		return
+	}
+
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
 		http.Error(w, "Invalid champion ID", http.StatusBadRequest)
@@ -79,55 +126,68 @@ func UpdateChampion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	found := false
-	for i, champion := range champions {
-		if champion.ID == id {
-			found = true
-			if updatedChampion.Name != "" {
-				champions[i].Name = updatedChampion.Name
-			}
-			if updatedChampion.Class != "" {
-				champions[i].Class = updatedChampion.Class
-			}
-			if updatedChampion.Price != 0 {
-				champions[i].Price = updatedChampion.Price
-			}
-
-			updatedChampion.ID = id
-			json.NewEncoder(w).Encode(updatedChampion)
-			break
+	var existingID int
+	err = db.QueryRow("SELECT id FROM champions WHERE id = $1", id).Scan(&existingID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Champion not found", http.StatusNotFound)
+			return
+		} else {
+			log.Printf("Error querying database: %v", err)
+			http.Error(w, "Error checking champion existence", http.StatusInternalServerError)
+			return
 		}
 	}
 
-	if !found {
-		http.Error(w, "Champion not found", http.StatusNotFound)
+	_, err = db.Exec("UPDATE champions SET name = $1, class = $2, price = $3 WHERE id = $4",
+		updatedChampion.Name, updatedChampion.Class, updatedChampion.Price, id)
+	if err != nil {
+		log.Printf("Error updating champion in the database: %v", err)
+		http.Error(w, "Error updating champion", http.StatusInternalServerError)
+		return
 	}
+
+	successMessage := map[string]string{"message": "Champion updated successfully"}
+	writeJSONResponse(w, successMessage)
 }
 
-func DeleteChampion(w http.ResponseWriter, r *http.Request) {
+func DeleteChampion(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	w.Header().Set("Content-Type", "application/json")
 
 	idParam := r.URL.Query().Get("id")
+	if idParam == "" {
+		http.Error(w, "Champion ID is missing", http.StatusBadRequest)
+		return
+	}
+
 	id, err := strconv.Atoi(idParam)
 	if err != nil {
 		http.Error(w, "Invalid champion ID", http.StatusBadRequest)
 		return
 	}
 
-	for i, champion := range champions {
-		if champion.ID == id {
-			champions = append(champions[:i], champions[i+1:]...)
-
-			for j := i; j < len(champions); j++ {
-				champions[j].ID--
-			}
-
-			w.Write([]byte(`{"message": "Champion deleted"}`))
-			return
-		}
+	result, err := db.Exec("DELETE FROM champions WHERE id = $1", id)
+	if err != nil {
+		handleError(w, err)
+		return
 	}
 
-	http.Error(w, "Champion not found", http.StatusNotFound)
+	rowsAffected, _ := result.RowsAffected()
+	if rowsAffected == 0 {
+		http.Error(w, "Champion with specified ID not found", http.StatusNotFound)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprint(w, "Champion deleted successfully")
 }
 
+func handleError(w http.ResponseWriter, err error) {
+	fmt.Println("Error:", err)
+	http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+}
 
+func writeJSONResponse(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(data)
+}
