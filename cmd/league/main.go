@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/SatelliteB6/TSIS2/pkg/league"
 	_ "github.com/lib/pq"
@@ -41,19 +42,37 @@ func main() {
 	defer db.Close()
 
 	http.HandleFunc("/champions", func(w http.ResponseWriter, r *http.Request) {
-		league.ListChampions(w, r, db)
-	})
-	http.HandleFunc("/champions/create", func(w http.ResponseWriter, r *http.Request) {
-		league.CreateChampion(w, r, db)
-	})
-	http.HandleFunc("/champions/get", func(w http.ResponseWriter, r *http.Request) {
-		league.GetChampion(w, r, db)
-	})
-	http.HandleFunc("/champions/update", func(w http.ResponseWriter, r *http.Request) {
-		league.UpdateChampion(w, r, db)
-	})
-	http.HandleFunc("/champions/delete", func(w http.ResponseWriter, r *http.Request) {
-		league.DeleteChampion(w, r, db)
+        switch r.Method {
+        case http.MethodGet:
+            league.ListChampions(w, r, db)
+        case http.MethodPost:
+            league.CreateChampion(w, r, db)
+        default:
+            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+        }
+    })
+
+	http.HandleFunc("/champions/", func(w http.ResponseWriter, r *http.Request) {
+		idStr := r.URL.Path[len("/champions/"):]
+		id, err := strconv.Atoi(idStr)
+		if err != nil {
+			http.Error(w, "Invalid champion ID", http.StatusBadRequest)
+			return
+		}
+
+		switch r.Method {
+		case http.MethodGet:
+			r.URL.RawQuery = "id=" + strconv.Itoa(id)
+			league.GetChampion(w, r, db)
+		case http.MethodPut:
+			r.URL.RawQuery = "id=" + strconv.Itoa(id)
+			league.UpdateChampion(w, r, db)
+		case http.MethodDelete:
+			r.URL.RawQuery = "id=" + strconv.Itoa(id)
+			league.DeleteChampion(w, r, db)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
 	})
 
 	port := "8080"
