@@ -36,7 +36,34 @@ type Champion struct {
 }
 
 func ListChampions(w http.ResponseWriter, r *http.Request, db *sql.DB) {
-	rows, err := db.Query("SELECT * FROM champions")
+	pageStr := r.URL.Query().Get("page")
+	page, _ := strconv.Atoi(pageStr)
+	pageSizeStr := r.URL.Query().Get("pageSize")
+	pageSize, _ := strconv.Atoi(pageSizeStr)
+	filter := r.URL.Query().Get("filter")
+	sortBy := r.URL.Query().Get("sortBy")
+	sortOrder := r.URL.Query().Get("sortOrder")
+
+	if page == 0 {
+		page = 1
+	}
+	if pageSize == 0 {
+		pageSize = 10
+	}
+	if sortBy == "" {
+		sortBy = "id"
+	}
+	if sortOrder != "desc" {
+		sortOrder = "asc"
+	}
+
+	query := "SELECT id, name, class, price FROM champions"
+	if filter != "" {
+		query += " WHERE name LIKE '%" + filter + "%' OR class LIKE '%" + filter + "%'"
+	}
+	query += " ORDER BY " + sortBy + " " + sortOrder + " LIMIT " + strconv.Itoa(pageSize) + " OFFSET " + strconv.Itoa((page-1)*pageSize)
+
+	rows, err := db.Query(query)
 	if err != nil {
 		handleError(w, err)
 		return
