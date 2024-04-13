@@ -47,9 +47,7 @@ func ListChampions(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 	if page == 0 {
 		page = 1
 	}
-	if pageSize == 0 {
-		pageSize = 10
-	}
+
 	if sortBy == "" {
 		sortBy = "id"
 	}
@@ -59,9 +57,17 @@ func ListChampions(w http.ResponseWriter, r *http.Request, db *sql.DB) {
 
 	query := "SELECT id, name, class, price FROM champions"
 	if filter != "" {
-		query += " WHERE name LIKE '%" + filter + "%' OR class LIKE '%" + filter + "%'"
+		_, err := strconv.Atoi(filter)
+		if err == nil {
+			query += " WHERE price = " + filter
+		} else {
+			query += " WHERE name LIKE '%" + filter + "%' OR class LIKE '%" + filter + "%'"
+		}
 	}
-	query += " ORDER BY " + sortBy + " " + sortOrder + " LIMIT " + strconv.Itoa(pageSize) + " OFFSET " + strconv.Itoa((page-1)*pageSize)
+	query += " ORDER BY " + sortBy + " " + sortOrder
+	if pageSize > 0 {
+		query += " LIMIT " + strconv.Itoa(pageSize) + " OFFSET " + strconv.Itoa((page-1)*pageSize)
+	}
 
 	rows, err := db.Query(query)
 	if err != nil {

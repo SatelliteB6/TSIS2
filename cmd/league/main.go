@@ -42,16 +42,15 @@ func main() {
 	defer db.Close()
 
 	http.HandleFunc("/champions", func(w http.ResponseWriter, r *http.Request) {
-        switch r.Method {
-        case http.MethodGet:
-            league.ListChampions(w, r, db)
-        case http.MethodPost:
-            league.CreateChampion(w, r, db)
-        default:
-            http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        }
-    })
-
+		switch r.Method {
+		case http.MethodGet:
+			league.ListChampions(w, r, db)
+		case http.MethodPost:
+			league.CreateChampion(w, r, db)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 	http.HandleFunc("/champions/", func(w http.ResponseWriter, r *http.Request) {
 		idStr := r.URL.Path[len("/champions/"):]
 		id, err := strconv.Atoi(idStr)
